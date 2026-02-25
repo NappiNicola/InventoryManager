@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ScrapTrack</title>
+<style>
+  :root {
+    --bg:#0d0d0d; --surface:#1a1a1a; --surface2:#242424; --border:#2e2e2e;
+    --accent:#f97316; --accent-d:#c2580e; --green:#22c55e; --red:#ef4444;
+    --text:#f0f0f0; --text-dim:#666; --text-mid:#999; --radius:14px;
+    --shadow:0 2px 16px rgba(0,0,0,.4);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px;min-height:100vh;padding-bottom:90px}
+
+  /* ── LOGIN ── */
+  #login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+  .login-logo{font-size:42px;font-weight:900;color:var(--accent);letter-spacing:-2px;margin-bottom:6px}
+  .login-sub{font-size:13px;color:var(--text-dim);margin-bottom:40px;letter-spacing:2px;text-transform:uppercase}
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;width:100%;max-width:360px;box-shadow:var(--shadow)}
+  .login-card h2{font-size:18px;font-weight:700;margin-bottom:20px}
+  #login-error{background:#2d0f0f;border:1px solid #7f1d1d;color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none}
+  #login-error.show{display:block}
+
+  /* ── APP ── */
+  #app{display:none}
+  #app.show{display:block}
+
+  /* ── TOPBAR ── */
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+  .topbar-left{display:flex;flex-direction:column}
+  .topbar-title{font-size:20px;font-weight:800;color:var(--accent);letter-spacing:-.5px}
+  .topbar-user{font-size:11px;color:var(--text-dim);margin-top:1px}
+  .topbar-right{display:flex;align-items:center;gap:12px}
+  .sync-dot{width:9px;height:9px;border-radius:50%;background:var(--border);cursor:pointer;flex-shrink:0;transition:background .3s}
+  .sync-dot.ok{background:var(--green)}
+  .sync-dot.busy{background:#f59e0b;animation:blink 1s infinite}
+  .sync-dot.err{background:var(--red)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .btn-logout{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;transition:all .15s}
+  .btn-logout:active{border-color:var(--red);color:var(--red)}
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border:none;background:none;cursor:pointer;color:var(--text-dim);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;gap:4px;transition:color .15s}
+  .nav-btn .icon{font-size:22px;line-height:1}
+  .nav-btn.active{color:var(--accent)}
+
+  /* ── PAGES ── */
+  .page{display:none;padding:16px;max-width:600px;margin:0 auto}
+  .page.active{display:block;animation:fadeUp .2s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin:20px 0 10px}
+  .section-label:first-child{margin-top:4px}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+
+  /* ── KPI ── */
+  .kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+  .kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .kpi-box-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:4px}
+  .kpi-box-value{font-size:28px;font-weight:800;letter-spacing:-1px;color:var(--text)}
+
+  /* ── INVENTORY ── */
+  .inv-item{display:flex;align-items:center;padding:16px;border-bottom:1px solid var(--border);gap:12px}
+  .inv-item:last-child{border-bottom:none}
+  .inv-color{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .inv-name{flex:1;font-weight:600;font-size:15px}
+  .inv-qty{font-size:24px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+  .inv-qty.zero{color:var(--text-dim);font-size:20px}
+
+  /* ── HISTORY ── */
+  .hist-item{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:12px}
+  .hist-item:last-child{border-bottom:none}
+  .hist-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .hist-icon.in{background:#052e16}
+  .hist-icon.out{background:#2d0f0f}
+  .hist-info{flex:1;min-width:0}
+  .hist-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hist-date{font-size:12px;color:var(--text-dim);margin-top:2px}
+  .hist-qty{font-weight:700;font-size:16px}
+  .hist-qty.in{color:var(--green)}
+  .hist-qty.out{color:var(--red)}
+  .hist-del{background:none;border:none;color:var(--border);font-size:20px;cursor:pointer;padding:4px;flex-shrink:0}
+  .hist-del:active{color:var(--red)}
+
+  /* ── FORM ── */
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:6px}
+  .field input,.field select{width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;color:var(--text);background:var(--surface2);outline:none;transition:border-color .15s;appearance:none;-webkit-appearance:none}
+  .field input:focus,.field select:focus{border-color:var(--accent)}
+  .field input::placeholder{color:var(--text-dim)}
+  .field select option{background:var(--surface2)}
+  .tipo-toggle{display:flex;gap:8px}
+  .tipo-btn{flex:1;padding:13px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);font-size:14px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;color:var(--text-dim)}
+  .tipo-btn.active-in{border-color:var(--green);background:#052e16;color:var(--green)}
+  .tipo-btn.active-out{border-color:var(--red);background:#2d0f0f;color:var(--red)}
+  .btn-submit{width:100%;padding:16px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px;transition:background .15s}
+  .btn-submit:active{background:var(--accent-d)}
+
+  /* ── CATEGORIE ── */
+  .cat-item{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:12px}
+  .cat-item:last-child{border-bottom:none}
+  .cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .cat-item-name{flex:1;font-weight:600}
+  .cat-item-del{background:none;border:none;color:var(--border);font-size:20px;cursor:pointer;padding:4px}
+  .cat-item-del:active{color:var(--red)}
+
+  /* ── SETTINGS ── */
+  .setup-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+  .setup-box h3{font-size:15px;font-weight:700;margin-bottom:8px}
+  .setup-box p{font-size:13px;color:var(--text-mid);line-height:1.7;margin-bottom:12px}
+  .setup-box ol{font-size:13px;color:var(--text-mid);line-height:2.2;margin-left:18px;margin-bottom:14px}
+  .setup-box code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:12px;color:var(--accent)}
+  .btn-outline{display:block;width:100%;padding:14px;border:2px solid var(--border);background:none;border-radius:12px;font-size:15px;font-weight:700;color:var(--text-mid);cursor:pointer;text-align:center;margin-bottom:10px;transition:all .15s}
+  .btn-outline:active{border-color:var(--accent);color:var(--accent)}
+  .btn-outline.primary{border-color:var(--accent);color:var(--accent)}
+
+  /* ── REPORT ── */
+  .report-period{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .period-btn{padding:8px 16px;border-radius:99px;border:1.5px solid var(--border);background:none;color:var(--text-mid);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+  .period-btn.active{border-color:var(--accent);color:var(--accent);background:#1f0e00}
+  .period-btn:active{background:var(--surface2)}
+
+  .report-kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .rep-kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .rep-kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:4px}
+  .rep-kpi-value{font-size:22px;font-weight:800;letter-spacing:-1px}
+  .rep-kpi-value.green{color:var(--green)}
+  .rep-kpi-value.red{color:var(--red)}
+  .rep-kpi-value.orange{color:var(--accent)}
+
+  .chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .chart-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:12px}
+
+  .cat-bar-item{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .cat-bar-item:last-child{margin-bottom:0}
+  .cat-bar-name{font-size:13px;font-weight:600;width:100px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cat-bar-track{flex:1;height:8px;background:var(--surface2);border-radius:99px;overflow:hidden}
+  .cat-bar-fill{height:8px;border-radius:99px;transition:width .4s}
+  .cat-bar-val{font-size:13px;font-weight:700;color:var(--text-mid);min-width:36px;text-align:right}
+
+  .month-row{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px}
+  .month-row:last-child{border-bottom:none}
+  .month-name{font-size:13px;color:var(--text-mid);width:72px;flex-shrink:0}
+  .month-in{font-size:13px;font-weight:700;color:var(--green);flex:1;text-align:right}
+  .month-out{font-size:13px;font-weight:700;color:var(--red);flex:1;text-align:right}
+  .month-net{font-size:13px;font-weight:800;flex:1;text-align:right}
+
+  .btn-pdf{width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s}
+  .btn-pdf:active{opacity:.8}
+  .btn-pdf:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ── MISC ── */
+  .empty{text-align:center;padding:48px 20px;color:var(--text-dim)}
+  .empty .e-icon{font-size:44px;margin-bottom:12px;opacity:.5}
+  .empty p{font-size:14px}
+  #toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:99px;font-size:14px;font-weight:500;opacity:0;transition:opacity .25s;z-index:200;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
+  #toast.show{opacity:1}
+  .colors{display:flex;gap:10px;flex-wrap:wrap}
+  .color-dot{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .1s}
+  .color-dot.selected{border-color:var(--text);transform:scale(1.2)}
+  #loading{position:fixed;inset:0;background:rgba(13,13,13,.85);display:none;align-items:center;justify-content:center;z-index:300}
+  #loading.show{display:flex}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-logo">ScrapTrack</div>
+  <div class="login-sub">Gestionale Scarti</div>
+  <div class="login-card">
+    <h2>Accedi</h2>
+    <div id="login-error"></div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="l-user" autocomplete="username" placeholder="es. mario">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="l-pass" autocomplete="current-password" placeholder="••••••">
+    </div>
+    <div class="field" id="url-field">
+      <label>URL Apps Script</label>
+      <input type="url" id="l-url" placeholder="https://script.google.com/macros/s/.../exec">
+      <div style="font-size:11px;color:var(--text-dim);margin-top:5px">Necessario solo al primo accesso</div>
+    </div>
+    <button class="btn-submit" onclick="doLogin()">Accedi</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">ScrapTrack</div>
+      <div class="topbar-user" id="topbar-user"></div>
+    </div>
+    <div class="topbar-right">
+      <div class="sync-dot" id="sync-dot" onclick="syncFromSheet()" title="Sincronizza"></div>
+      <button class="btn-logout" onclick="doLogout()">Esci</button>
+    </div>
+  </div>
+
+  <main>
+
+    <!-- INVENTARIO -->
+    <div id="page-inv" class="page active">
+      <div class="section-label">Inventario</div>
+      <div class="kpi-row" id="kpi-row"></div>
+      <div class="section-label">Per categoria</div>
+      <div class="card" id="inv-list"></div>
+    </div>
+
+    <!-- REGISTRA -->
+    <div id="page-reg" class="page">
+      <div class="section-label">Nuovo movimento</div>
+      <div class="card" style="padding:16px">
+        <div class="field">
+          <label>Tipo</label>
+          <div class="tipo-toggle">
+            <button class="tipo-btn active-in" id="btn-in" onclick="setTipo('in')">➕ Entrata</button>
+            <button class="tipo-btn" id="btn-out" onclick="setTipo('out')">➖ Uscita</button>
+          </div>
+        </div>
+        <div class="field"><label>Categoria</label><select id="f-cat"></select></div>
+        <div class="field"><label>Quantità</label><input type="number" id="f-qty" inputmode="decimal" min="0.01" step="any" placeholder="0"></div>
+        <div class="field"><label>Data</label><input type="date" id="f-date"></div>
+        <div class="field"><label>Note (opzionale)</label><input type="text" id="f-note" placeholder="es. lotto, cliente..."></div>
+        <button class="btn-submit" onclick="submitMovement()">Registra</button>
+      </div>
+    </div>
+
+    <!-- STORICO -->
+    <div id="page-hist" class="page">
+      <div class="section-label">Storico movimenti</div>
+      <div class="card" id="hist-list"></div>
+    </div>
+
+    <!-- REPORT (solo admin) -->
+    <div id="page-report" class="page">
+      <div class="section-label">Periodo</div>
+      <div class="report-period">
+        <button class="period-btn active" onclick="setPeriod('month',this)">Questo mese</button>
+        <button class="period-btn" onclick="setPeriod('quarter',this)">Trimestre</button>
+        <button class="period-btn" onclick="setPeriod('year',this)">Anno</button>
+        <button class="period-btn" onclick="setPeriod('all',this)">Tutti</button>
+      </div>
+
+      <div class="report-kpi" id="rep-kpi"></div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Saldo per categoria</div>
+        <div id="rep-cat-bars"></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Entrate / Uscite per mese</div>
+        <div id="rep-month-table"></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Storico completo</div>
+        <div id="rep-hist-table" style="max-height:320px;overflow-y:auto"></div>
+      </div>
+
+      <button class="btn-pdf" id="btn-pdf" onclick="downloadPDF()">
+        <span>⬇</span> Scarica PDF
+      </button>
+    </div>
+
+    <!-- IMPOSTAZIONI -->
+    <div id="page-settings" class="page">
+      <div class="section-label">Categorie</div>
+      <div class="card" id="cat-list" style="margin-bottom:10px"></div>
+      <div class="card" style="padding:16px;margin-bottom:20px">
+        <div class="field"><label>Nome nuova categoria</label><input type="text" id="new-cat-name" placeholder="es. Alluminio, PVC..."></div>
+        <div class="field"><label>Colore</label><div class="colors" id="color-picker"></div></div>
+        <button class="btn-submit" onclick="addCategory()">Aggiungi categoria</button>
+      </div>
+      <div class="section-label">Google Sheet</div>
+      <div class="setup-box">
+        <h3>Connessione attiva</h3>
+        <p>Tocca il pallino in alto per sincronizzare manualmente.</p>
+        <button class="btn-outline primary" onclick="syncFromSheet()">↻ Sincronizza ora</button>
+        <button class="btn-outline" onclick="changeUrl()">Cambia URL Script</button>
+      </div>
+    </div>
+
+  </main>
+
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-btn active" onclick="showPage('inv',this)"><span class="icon">📦</span>Inventario</button>
+    <button class="nav-btn" onclick="showPage('reg',this)"><span class="icon">✏️</span>Registra</button>
+    <button class="nav-btn" onclick="showPage('hist',this)"><span class="icon">📋</span>Storico</button>
+    <!-- tab report iniettata dinamicamente se admin -->
+    <button class="nav-btn" onclick="showPage('settings',this)"><span class="icon">⚙️</span>Impostazioni</button>
+  </nav>
+</div>
+
+<div id="loading"><div class="spinner"></div></div>
+<div id="toast"></div>
+
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+const COLORS = ['#f97316','#22c55e','#3b82f6','#a855f7','#ec4899','#06b6d4','#eab308','#94a3b8'];
+
+let session = JSON.parse(localStorage.getItem('st_session') || 'null');
+let db = JSON.parse(localStorage.getItem('st_db') || '{}');
+if (!db.categories) db.categories = [];
+if (!db.movements)  db.movements  = [];
+
+let selectedTipo  = 'in';
+let selectedColor = COLORS[0];
+let currentPeriod = 'month';
+
+function saveLocal() { localStorage.setItem('st_db', JSON.stringify(db)); }
+function isAdmin()   { return session?.role === 'admin'; }
+
+// ══════════════════════════════════════
+//  LOGIN / LOGOUT
+// ══════════════════════════════════════
+async function doLogin() {
+  const username = document.getElementById('l-user').value.trim();
+  const password = document.getElementById('l-pass').value;
+  const urlInput = document.getElementById('l-url').value.trim();
+  const scriptUrl = urlInput || localStorage.getItem('st_script_url') || '';
+
+  if (!username || !password) { showLoginError('Inserisci username e password.'); return; }
+  if (!scriptUrl)              { showLoginError('Inserisci l\'URL Apps Script.'); return; }
+
+  loading(true);
+  try {
+    const res = await apiFetch(scriptUrl, 'GET', { action:'login', username, password });
+    if (!res.ok) { showLoginError(res.error || 'Credenziali non valide.'); loading(false); return; }
+
+    session = { username, password, scriptUrl, displayName: res.displayName || username, role: res.role || 'user' };
+    localStorage.setItem('st_session', JSON.stringify(session));
+    localStorage.setItem('st_script_url', scriptUrl);
+
+    hideLoginError();
+    startApp();
+    await syncFromSheet();
+  } catch(e) {
+    showLoginError('Errore di connessione: ' + e.message);
+  } finally { loading(false); }
+}
+
+function doLogout() {
+  session = null;
+  localStorage.removeItem('st_session');
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('l-pass').value = '';
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = '⚠ ' + msg; el.classList.add('show');
+}
+function hideLoginError() { document.getElementById('login-error').classList.remove('show'); }
+
+function startApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('show');
+  document.getElementById('topbar-user').textContent = (isAdmin() ? '👑 ' : '👤 ') + (session.displayName || session.username);
+  if (localStorage.getItem('st_script_url')) document.getElementById('url-field').style.display = 'none';
+
+  // Inietta tab Report solo per admin
+  if (isAdmin()) {
+    const nav = document.getElementById('bottom-nav');
+    const settingsBtn = nav.querySelector('button:last-child');
+    const reportBtn = document.createElement('button');
+    reportBtn.className = 'nav-btn';
+    reportBtn.innerHTML = '<span class="icon">📊</span>Report';
+    reportBtn.onclick = function() { showPage('report', this); };
+    nav.insertBefore(reportBtn, settingsBtn);
+  }
+
+  renderInventory();
+  populateCatSelect();
+  renderColorPicker();
+}
+
+function changeUrl() {
+  localStorage.removeItem('st_script_url');
+  doLogout();
+  document.getElementById('url-field').style.display = 'block';
+}
+
+// ══════════════════════════════════════
+//  API
+// ══════════════════════════════════════
+async function apiFetch(url, method, params = {}) {
+  if (method === 'GET') {
+    const res = await fetch(`${url}?${new URLSearchParams(params)}`, { redirect:'follow' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+  const res = await fetch(url, {
+    method:'POST', redirect:'follow',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function apiGet(params = {}) {
+  return apiFetch(session.scriptUrl, 'GET', { username: session.username, password: session.password, ...params });
+}
+
+async function apiPost(action, payload = {}) {
+  return apiFetch(session.scriptUrl, 'POST', { username: session.username, password: session.password, action, payload });
+}
+
+function setSyncStatus(s) { document.getElementById('sync-dot').className = 'sync-dot ' + (s||''); }
+
+async function syncFromSheet() {
+  if (!session) return;
+  setSyncStatus('busy');
+  try {
+    const data = await apiGet({ action:'all' });
+    if (!data.ok) throw new Error(data.error);
+    if (data.movements)  db.movements  = data.movements;
+    if (data.categories && data.categories.length) db.categories = data.categories;
+    saveLocal();
+    setSyncStatus('ok');
+    renderInventory(); renderHistory(); renderCategories(); populateCatSelect();
+    if (isAdmin()) renderReport();
+    toast('↻ Sincronizzato');
+  } catch(e) { setSyncStatus('err'); toast('Errore sync: ' + e.message); }
+}
+
+// ══════════════════════════════════════
+//  NAV
+// ══════════════════════════════════════
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'inv')      renderInventory();
+  if (id === 'hist')     renderHistory();
+  if (id === 'report')   renderReport();
+  if (id === 'settings') { renderCategories(); renderColorPicker(); }
+}
+
+// ══════════════════════════════════════
+//  INVENTARIO
+// ══════════════════════════════════════
+function getInventory() {
+  const s = {};
+  db.categories.forEach(c => s[c.id] = 0);
+  db.movements.forEach(m => {
+    if (s[m.catId] === undefined) s[m.catId] = 0;
+    s[m.catId] += m.tipo === 'in' ? m.qty : -m.qty;
+  });
+  return s;
+}
+
+function renderInventory() {
+  const s = getInventory();
+  const total = Object.values(s).reduce((a,v) => a+Math.max(0,v), 0);
+  document.getElementById('kpi-row').innerHTML = `
+    <div class="kpi-box"><div class="kpi-box-label">Totale in stock</div><div class="kpi-box-value">${fmt(total)}</div></div>
+    <div class="kpi-box"><div class="kpi-box-label">Movimenti</div><div class="kpi-box-value">${db.movements.length}</div></div>
+  `;
+  document.getElementById('inv-list').innerHTML = db.categories.length
+    ? db.categories.map(c => {
+        const q = s[c.id] || 0;
+        return `<div class="inv-item"><div class="inv-color" style="background:${c.color}"></div><div class="inv-name">${c.name}</div><div class="inv-qty${q<=0?' zero':''}">${fmt(q)}</div></div>`;
+      }).join('')
+    : '<div class="empty"><div class="e-icon">📦</div><p>Nessuna categoria.<br>Aggiungila in Impostazioni.</p></div>';
+}
+
+// ══════════════════════════════════════
+//  STORICO
+// ══════════════════════════════════════
+function renderHistory() {
+  const sorted = [...db.movements].sort((a,b) => b.ts - a.ts);
+  if (!sorted.length) { document.getElementById('hist-list').innerHTML = '<div class="empty"><div class="e-icon">📋</div><p>Nessun movimento.</p></div>'; return; }
+  document.getElementById('hist-list').innerHTML = sorted.map(m => {
+    const cat = db.categories.find(c => c.id === m.catId);
+    const name = cat?.name || 'Categoria rimossa';
+    const d = new Date(m.ts).toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
+    return `<div class="hist-item">
+      <div class="hist-icon ${m.tipo}">${m.tipo==='in'?'➕':'➖'}</div>
+      <div class="hist-info"><div class="hist-name">${name}${m.note?' · '+m.note:''}</div><div class="hist-date">${d}${m.user?' · 👤 '+m.user:''}</div></div>
+      <div class="hist-qty ${m.tipo}">${m.tipo==='in'?'+':'-'}${fmt(m.qty)}</div>
+      <button class="hist-del" onclick="deleteMovement('${m.id}')">×</button>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+//  FORM
+// ══════════════════════════════════════
+function setTipo(t) {
+  selectedTipo = t;
+  document.getElementById('btn-in').className  = 'tipo-btn'+(t==='in' ?' active-in':'');
+  document.getElementById('btn-out').className = 'tipo-btn'+(t==='out'?' active-out':'');
+}
+
+function populateCatSelect() {
+  document.getElementById('f-cat').innerHTML = db.categories.length
+    ? db.categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')
+    : '<option value="">Nessuna categoria</option>';
+}
+
+async function submitMovement() {
+  const catId = document.getElementById('f-cat').value;
+  const qty   = parseFloat(document.getElementById('f-qty').value);
+  const note  = document.getElementById('f-note').value.trim();
+  const dateV = document.getElementById('f-date').value;
+  if (!catId)       { toast('Seleziona una categoria'); return; }
+  if (!qty||qty<=0) { toast('Inserisci una quantità valida'); return; }
+  const movement = { id:Date.now().toString(), catId, tipo:selectedTipo, qty, note, ts: dateV ? new Date(dateV).getTime() : Date.now(), user: session.username };
+  db.movements.push(movement); saveLocal(); renderInventory();
+  document.getElementById('f-qty').value = '';
+  document.getElementById('f-note').value = '';
+  toast(selectedTipo==='in'?'➕ Entrata registrata':'➖ Uscita registrata');
+  setSyncStatus('busy');
+  try { await apiPost('addMovement',{movement}); setSyncStatus('ok'); }
+  catch(e) { setSyncStatus('err'); toast('Salvato solo in locale'); }
+}
+
+async function deleteMovement(id) {
+  db.movements = db.movements.filter(m=>m.id!==id);
+  saveLocal(); renderHistory(); renderInventory();
+  toast('Eliminato');
+  setSyncStatus('busy');
+  try { await apiPost('deleteMovement',{id}); setSyncStatus('ok'); }
+  catch(e) { setSyncStatus('err'); }
+}
+
+// ══════════════════════════════════════
+//  CATEGORIE
+// ══════════════════════════════════════
+async function addCategory() {
+  const name = document.getElementById('new-cat-name').value.trim();
+  if (!name) { toast('Inserisci il nome'); return; }
+  if (db.categories.find(c=>c.name.toLowerCase()===name.toLowerCase())) { toast('Già esistente'); return; }
+  const category = {id:'c'+Date.now(), name, color:selectedColor};
+  db.categories.push(category); saveLocal(); renderCategories(); populateCatSelect();
+  document.getElementById('new-cat-name').value = '';
+  toast('Categoria aggiunta');
+  setSyncStatus('busy');
+  try { await apiPost('addCategory',{category}); setSyncStatus('ok'); }
+  catch(e) { setSyncStatus('err'); }
+}
+
+async function deleteCategory(id) {
+  if (db.movements.some(m=>m.catId===id)) { toast('Categoria in uso'); return; }
+  if (!confirm('Eliminare questa categoria?')) return;
+  db.categories = db.categories.filter(c=>c.id!==id);
+  saveLocal(); renderCategories(); populateCatSelect();
+  toast('Eliminata');
+  setSyncStatus('busy');
+  try { await apiPost('deleteCategory',{id}); setSyncStatus('ok'); }
+  catch(e) { setSyncStatus('err'); }
+}
+
+function renderCategories() {
+  document.getElementById('cat-list').innerHTML = db.categories.length
+    ? db.categories.map(c=>`<div class="cat-item"><div class="cat-dot" style="background:${c.color}"></div><div class="cat-item-name">${c.name}</div><button class="cat-item-del" onclick="deleteCategory('${c.id}')">×</button></div>`).join('')
+    : '<div class="empty" style="padding:24px"><p>Nessuna categoria</p></div>';
+}
+
+function renderColorPicker() {
+  document.getElementById('color-picker').innerHTML = COLORS.map(c=>
+    `<div class="color-dot${c===selectedColor?' selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
+  ).join('');
+}
+function selectColor(c) { selectedColor=c; renderColorPicker(); }
+
+// ══════════════════════════════════════
+//  REPORT
+// ══════════════════════════════════════
+function getPeriodRange(period) {
+  const now = new Date();
+  let from;
+  if (period==='month')   from = new Date(now.getFullYear(), now.getMonth(), 1);
+  else if (period==='quarter') from = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
+  else if (period==='year')    from = new Date(now.getFullYear(), 0, 1);
+  else from = new Date(0);
+  return { from: from.getTime(), to: now.getTime() };
+}
+
+function setPeriod(p, btn) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderReport();
+}
+
+function renderReport() {
+  if (!isAdmin()) return;
+  const { from, to } = getPeriodRange(currentPeriod);
+  const mvs = db.movements.filter(m => m.ts >= from && m.ts <= to);
+  const ins  = mvs.filter(m=>m.tipo==='in');
+  const outs = mvs.filter(m=>m.tipo==='out');
+  const totIn  = ins.reduce((a,m)=>a+m.qty,0);
+  const totOut = outs.reduce((a,m)=>a+m.qty,0);
+  const net    = totIn - totOut;
+  const saldo  = getInventory();
+
+  // KPI
+  document.getElementById('rep-kpi').innerHTML = `
+    <div class="rep-kpi-box"><div class="rep-kpi-label">Entrate</div><div class="rep-kpi-value green">+${fmt(totIn)}</div></div>
+    <div class="rep-kpi-box"><div class="rep-kpi-label">Uscite</div><div class="rep-kpi-value red">-${fmt(totOut)}</div></div>
+    <div class="rep-kpi-box"><div class="rep-kpi-label">Netto periodo</div><div class="rep-kpi-value ${net>=0?'green':'red'}">${net>=0?'+':''}${fmt(net)}</div></div>
+    <div class="rep-kpi-box"><div class="rep-kpi-label">Movimenti</div><div class="rep-kpi-value orange">${mvs.length}</div></div>
+  `;
+
+  // Barre saldo per categoria
+  const catSaldi = db.categories.map(c => ({ name:c.name, color:c.color, val: saldo[c.id]||0 }));
+  const maxVal = Math.max(...catSaldi.map(c=>Math.abs(c.val)), 1);
+  document.getElementById('rep-cat-bars').innerHTML = catSaldi.length
+    ? catSaldi.map(c=>`
+        <div class="cat-bar-item">
+          <div class="cat-bar-name">${c.name}</div>
+          <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${Math.abs(c.val)/maxVal*100}%;background:${c.val>=0?c.color:'#ef4444'}"></div></div>
+          <div class="cat-bar-val">${fmt(c.val)}</div>
+        </div>`).join('')
+    : '<div style="color:var(--text-dim);font-size:13px;padding:8px 0">Nessun dato</div>';
+
+  // Tabella per mese
+  const monthMap = {};
+  mvs.forEach(m => {
+    const key = new Date(m.ts).toLocaleDateString('it-IT',{month:'short',year:'numeric'});
+    if (!monthMap[key]) monthMap[key] = {in:0, out:0};
+    monthMap[key][m.tipo] += m.qty;
+  });
+  const monthRows = Object.entries(monthMap).slice(-12);
+  document.getElementById('rep-month-table').innerHTML = monthRows.length
+    ? `<div style="display:flex;padding:0 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);width:72px;flex-shrink:0">Mese</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);flex:1;text-align:right">Entrate</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);flex:1;text-align:right">Uscite</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);flex:1;text-align:right">Netto</div>
+      </div>` +
+      monthRows.map(([month, v]) => {
+        const n = v.in - v.out;
+        return `<div class="month-row">
+          <div class="month-name">${month}</div>
+          <div class="month-in">+${fmt(v.in)}</div>
+          <div class="month-out">-${fmt(v.out)}</div>
+          <div class="month-net" style="color:${n>=0?'var(--green)':'var(--red)'}">${n>=0?'+':''}${fmt(n)}</div>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--text-dim);font-size:13px;padding:8px 0">Nessun dato nel periodo selezionato</div>';
+
+  // Storico completo nel periodo
+  const sorted = [...mvs].sort((a,b)=>b.ts-a.ts);
+  document.getElementById('rep-hist-table').innerHTML = sorted.length
+    ? sorted.map(m => {
+        const cat = db.categories.find(c=>c.id===m.catId);
+        const d = new Date(m.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
+        return `<div class="hist-item" style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div class="hist-icon ${m.tipo}" style="width:28px;height:28px;font-size:12px">${m.tipo==='in'?'➕':'➖'}</div>
+          <div class="hist-info"><div class="hist-name">${cat?.name||'—'}${m.note?' · '+m.note:''}</div><div class="hist-date">${d}${m.user?' · 👤 '+m.user:''}</div></div>
+          <div class="hist-qty ${m.tipo}" style="font-size:14px">${m.tipo==='in'?'+':'-'}${fmt(m.qty)}</div>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--text-dim);font-size:13px;padding:16px 0;text-align:center">Nessun movimento nel periodo</div>';
+}
+
+// ══════════════════════════════════════
+//  DOWNLOAD PDF
+// ══════════════════════════════════════
+function downloadPDF() {
+  if (!isAdmin()) return;
+  const btn = document.getElementById('btn-pdf');
+  btn.disabled = true;
+  btn.textContent = 'Generazione...';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const { from, to } = getPeriodRange(currentPeriod);
+    const mvs = db.movements.filter(m => m.ts >= from && m.ts <= to);
+    const ins  = mvs.filter(m=>m.tipo==='in');
+    const outs = mvs.filter(m=>m.tipo==='out');
+    const totIn  = ins.reduce((a,m)=>a+m.qty,0);
+    const totOut = outs.reduce((a,m)=>a+m.qty,0);
+    const saldo  = getInventory();
+
+    const W = 210;
+    const ORANGE = [249, 115, 22];
+    const DARK   = [26, 26, 26];
+    const GRAY   = [100, 100, 100];
+    const GREEN  = [34, 197, 94];
+    const RED    = [239, 68, 68];
+    const BGDARK = [13, 13, 13];
+    const BGROW  = [30, 30, 30];
+
+    // ── Sfondo header ──
+    doc.setFillColor(...BGDARK);
+    doc.rect(0, 0, W, 38, 'F');
+
+    // Logo / titolo
+    doc.setTextColor(...ORANGE);
+    doc.setFontSize(26);
+    doc.setFont('helvetica','bold');
+    doc.text('ScrapTrack', 14, 18);
+
+    doc.setTextColor(...GRAY);
+    doc.setFontSize(9);
+    doc.setFont('helvetica','normal');
+    doc.text('REPORT GESTIONALE SCARTI', 14, 25);
+
+    // Periodo + data generazione
+    const periodoLabel = { month:'Questo mese', quarter:'Trimestre', year:'Anno', all:'Tutti i dati' }[currentPeriod];
+    const genDate = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+    doc.text(`Periodo: ${periodoLabel}   |   Generato il: ${genDate}   |   Admin: ${session.displayName}`, 14, 32);
+
+    let y = 48;
+
+    // ── KPI row ──
+    const kpis = [
+      { label:'ENTRATE', value:`+${fmt(totIn)}`, color:GREEN },
+      { label:'USCITE',  value:`-${fmt(totOut)}`, color:RED },
+      { label:'NETTO',   value:`${(totIn-totOut)>=0?'+':''}${fmt(totIn-totOut)}`, color: (totIn-totOut)>=0?GREEN:RED },
+      { label:'MOVIMENTI', value: String(mvs.length), color:ORANGE },
+    ];
+    const boxW = (W - 28 - 9) / 4;
+    kpis.forEach((k,i) => {
+      const x = 14 + i*(boxW+3);
+      doc.setFillColor(...BGROW);
+      doc.roundedRect(x, y, boxW, 20, 2, 2, 'F');
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(7);
+      doc.setFont('helvetica','bold');
+      doc.text(k.label, x+4, y+7);
+      doc.setTextColor(...k.color);
+      doc.setFontSize(14);
+      doc.text(k.value, x+4, y+16);
+    });
+    y += 28;
+
+    // ── Saldo inventario per categoria ──
+    doc.setTextColor(...ORANGE);
+    doc.setFontSize(10);
+    doc.setFont('helvetica','bold');
+    doc.text('INVENTARIO — SALDO PER CATEGORIA', 14, y);
+    y += 5;
+
+    const catRows = db.categories.map(c => {
+      const val = saldo[c.id] || 0;
+      return [c.name, fmt(val)];
+    });
+    doc.autoTable({
+      startY: y,
+      head: [['Categoria', 'Saldo attuale']],
+      body: catRows.length ? catRows : [['Nessuna categoria', '—']],
+      theme: 'plain',
+      styles: { fillColor: BGROW, textColor: [240,240,240], fontSize: 10, cellPadding: 4 },
+      headStyles: { fillColor: DARK, textColor: ORANGE, fontStyle:'bold', fontSize: 9 },
+      alternateRowStyles: { fillColor: [22,22,22] },
+      margin: { left:14, right:14 },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ── Totali per mese ──
+    doc.setTextColor(...ORANGE);
+    doc.setFontSize(10);
+    doc.setFont('helvetica','bold');
+    doc.text('TOTALI PER MESE', 14, y);
+    y += 5;
+
+    const monthMap = {};
+    mvs.forEach(m => {
+      const key = new Date(m.ts).toLocaleDateString('it-IT',{month:'short',year:'numeric'});
+      if (!monthMap[key]) monthMap[key] = {in:0,out:0};
+      monthMap[key][m.tipo] += m.qty;
+    });
+    const monthRows2 = Object.entries(monthMap).map(([month,v]) => {
+      const n = v.in-v.out;
+      return [month, `+${fmt(v.in)}`, `-${fmt(v.out)}`, `${n>=0?'+':''}${fmt(n)}`];
+    });
+    doc.autoTable({
+      startY: y,
+      head: [['Mese', 'Entrate', 'Uscite', 'Netto']],
+      body: monthRows2.length ? monthRows2 : [['—','—','—','—']],
+      theme: 'plain',
+      styles: { fillColor: BGROW, textColor:[240,240,240], fontSize:10, cellPadding:4 },
+      headStyles: { fillColor:DARK, textColor:ORANGE, fontStyle:'bold', fontSize:9 },
+      alternateRowStyles: { fillColor:[22,22,22] },
+      margin: { left:14, right:14 },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ── Storico completo (nuova pagina se troppo lungo) ──
+    if (y > 220) { doc.addPage(); doc.setFillColor(...BGDARK); doc.rect(0,0,W,10,'F'); y = 18; }
+
+    doc.setTextColor(...ORANGE);
+    doc.setFontSize(10);
+    doc.setFont('helvetica','bold');
+    doc.text('STORICO MOVIMENTI', 14, y);
+    y += 5;
+
+    const histRows = [...mvs]
+      .sort((a,b)=>b.ts-a.ts)
+      .map(m => {
+        const cat = db.categories.find(c=>c.id===m.catId);
+        const d = new Date(m.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
+        return [
+          d,
+          m.tipo === 'in' ? 'Entrata' : 'Uscita',
+          cat?.name || '—',
+          `${m.tipo==='in'?'+':'-'}${fmt(m.qty)}`,
+          m.user || '—',
+          m.note || '',
+        ];
+      });
+
+    doc.autoTable({
+      startY: y,
+      head: [['Data','Tipo','Categoria','Quantità','Utente','Note']],
+      body: histRows.length ? histRows : [['—','—','—','—','—','—']],
+      theme: 'plain',
+      styles: { fillColor:BGROW, textColor:[240,240,240], fontSize:9, cellPadding:3 },
+      headStyles: { fillColor:DARK, textColor:ORANGE, fontStyle:'bold', fontSize:9 },
+      alternateRowStyles: { fillColor:[22,22,22] },
+      margin: { left:14, right:14 },
+      columnStyles: { 1: { cellWidth:20 }, 3: { cellWidth:22, halign:'right' }, 4: { cellWidth:24 } },
+    });
+
+    // ── Footer ──
+    const pageCount = doc.getNumberOfPages();
+    for (let i=1; i<=pageCount; i++) {
+      doc.setPage(i);
+      doc.setFillColor(...BGDARK);
+      doc.rect(0, 287, W, 10, 'F');
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(8);
+      doc.text(`ScrapTrack — Report riservato`, 14, 293);
+      doc.text(`Pag. ${i}/${pageCount}`, W-14, 293, {align:'right'});
+    }
+
+    const fileName = `scraptrack_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    toast('📄 PDF scaricato!');
+  } catch(e) {
+    toast('Errore PDF: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>⬇</span> Scarica PDF';
+  }
+}
+
+// ══════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════
+function fmt(n) {
+  if (Number.isInteger(n)) return n.toString();
+  return parseFloat(n.toFixed(2)).toString();
+}
+function loading(show) { document.getElementById('loading').classList.toggle('show', show); }
+let _tt;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+window.addEventListener('load', () => {
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  if (localStorage.getItem('st_script_url')) document.getElementById('url-field').style.display = 'none';
+  if (session) { startApp(); syncFromSheet(); }
+});
+</script>
+</body>
+</html>
